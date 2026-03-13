@@ -21,11 +21,8 @@ def train_bpe(
     cur_length = len(vocab)
     target_merge_times = vocab_size - cur_length
 
-    with open(file=file_path, mode="rb") as f:
-        if not f:
-            Exception("No such file")
-        else:
-            text = f.read()
+    with open(file=file_path, mode="r", encoding="utf-8") as f:
+        text = f.read()
 
     # clean out special_tokens
     escaped = [re.escape(token) for token in special_tokens]
@@ -64,7 +61,7 @@ def train_bpe(
             pair_counts[cur_pair] += freq
 
     cur_merge_times = 0
-    while cur_merge_times <= target_merge_times:
+    while cur_merge_times < target_merge_times:
         # find the best pair of this round
         best_pair_item = max(pair_counts.items(), key=lambda x: (x[1], x[0]))
         best_pair = best_pair_item[0]
@@ -77,8 +74,8 @@ def train_bpe(
         new_vocab_id = cur_length + cur_merge_times
         vocab[new_vocab_id] = new_vocab
 
-        # get all the ids of pre_tokens where the best_pair exists
-        bestpair_word_ids = pair2id[best_pair]
+        # get all the ids of pre_tokens where the best_pair exists, use deep-copy to prevent loop conflict
+        bestpair_word_ids = pair2id[best_pair].copy()
 
         # merge through all pre_tokens where best_pair exists
         for word_id in bestpair_word_ids:
@@ -99,6 +96,7 @@ def train_bpe(
                     if i == len(old_tuple) - 2:
                         new_bytes_list.append(old_tuple[i + 1])
                     i += 1
+            
             new_tuple = tuple(new_bytes_list)
 
             # update tokens tuple in word_dict
@@ -120,9 +118,15 @@ def train_bpe(
             # counts of new pair will be added to pair_counts
 
             # update pair-id mapping of new pairs to pair2id
-            new_pairs = [pair for pair, value in new_tuple_pair_counts if value > 0]
+            new_pairs = [pair for pair, value in new_tuple_pair_counts.items() if value > 0]
             for new_pair in new_pairs:
                 pair2id[new_pair].add(word_id)
+            
+            # update pair-id mapping of destroyed pairs to pair2id
+            destoryed_pairs = [pair for pair, value in new_tuple_pair_counts.items() if value < 0]
+            for destoryed_pair in destoryed_pairs:
+                pair2id[destoryed_pair].discard(word_id)
+
 
         # clear merged pair's data
         del pair2id[best_pair]
@@ -132,7 +136,6 @@ def train_bpe(
         cur_merge_times += 1
 
     return vocab, merges
-
 
 if __name__ == "__main__":
     pass
