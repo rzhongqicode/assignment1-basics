@@ -116,6 +116,10 @@ def train_bpe(
                 old_tuple_pair_counts[(old_tuple[i], old_tuple[i + 1])] += 1
             for i in range(len(new_tuple) - 1):
                 new_tuple_pair_counts[(new_tuple[i], new_tuple[i + 1])] += 1
+
+            old_pair_set = set(old_tuple_pair_counts.keys())
+            new_pair_set = set(new_tuple_pair_counts.keys())
+
             new_tuple_pair_counts.subtract(old_tuple_pair_counts)
             for pair, count in new_tuple_pair_counts.items():
                 pair_counts[pair] += freq * count
@@ -124,14 +128,13 @@ def train_bpe(
             # counts of pair that does not overlap with best_pair will stay the same,
             # counts of new pair will be added to pair_counts
 
+            
             # update pair-id mapping of new pairs to pair2id
-            new_pairs = [pair for pair, value in new_tuple_pair_counts.items() if value > 0]
-            for new_pair in new_pairs:
+            for new_pair in new_pair_set - old_pair_set:
                 pair2id[new_pair].add(word_id)
             
             # update pair-id mapping of destroyed pairs to pair2id
-            destoryed_pairs = [pair for pair, value in new_tuple_pair_counts.items() if value < 0]
-            for destoryed_pair in destoryed_pairs:
+            for destoryed_pair in old_pair_set - new_pair_set:
                 pair2id[destoryed_pair].discard(word_id)
 
 
