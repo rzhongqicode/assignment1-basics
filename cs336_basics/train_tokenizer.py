@@ -85,16 +85,23 @@ def train_bpe(
             # create the new tuple
             new_bytes_list = []
             i = 0
-            while i <= (len(old_tuple) - 2):
-                if (old_tuple[i], old_tuple[i + 1]) == best_pair:
+            # while i <= (len(old_tuple) - 2):
+            #     if (old_tuple[i], old_tuple[i + 1]) == best_pair:
+            #         new_bytes_list.append(old_tuple[i] + old_tuple[i + 1])
+            #         if i == len(old_tuple) - 3:
+            #             new_bytes_list.append(old_tuple[i + 2])
+            #         i += 2
+            #     else:
+            #         new_bytes_list.append(old_tuple[i])
+            #         if i == len(old_tuple) - 2:
+            #             new_bytes_list.append(old_tuple[i + 1])
+            #         i += 1
+            while i < len(old_tuple):
+                if i < len(old_tuple) - 1 and (old_tuple[i], old_tuple[i + 1]) == best_pair:
                     new_bytes_list.append(old_tuple[i] + old_tuple[i + 1])
-                    if i == len(old_tuple) - 3:
-                        new_bytes_list.append(old_tuple[i + 2])
                     i += 2
                 else:
                     new_bytes_list.append(old_tuple[i])
-                    if i == len(old_tuple) - 2:
-                        new_bytes_list.append(old_tuple[i + 1])
                     i += 1
             
             new_tuple = tuple(new_bytes_list)
