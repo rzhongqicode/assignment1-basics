@@ -1,7 +1,7 @@
 import os
 from collections import Counter, defaultdict
 from typing import BinaryIO
-
+import json
 import regex as re
 
 from cs336_basics.pretokenization_example import find_chunk_boundaries
@@ -146,6 +146,42 @@ def train_bpe(
         cur_merge_times += 1
 
     return vocab, merges
+
+def save_tokenizer(vocab:dict[int,bytes],merges:list[tuple[bytes,bytes]],vocab_filepath:str,merges_filepath:str):
+    # 1. save vocab as json file
+    # a. key in json has to be 'str' format
+    # b. can't dump bytes format to json file directly
+    vocab_to_save = {}
+    for id, byte_token in vocab.items():
+        vocab_to_save[str(id)] = byte_token.hex()
+    with open(file=vocab_filepath, mode="w", encoding="utf-8") as f:
+        json.dump(obj=vocab_to_save, fp=f, indent=2)
+    
+    # 2. save merges as txt file
+    with open(file=merges_filepath, mode="w", encoding="utf-8") as f:
+        for bytes1, bytes2 in merges:
+            f.write(f"{bytes1.hex()} {bytes2.hex()}\n")
+
+def load_tokenizer(vocab_filepath:str, merges_filepath:str)->tuple[dict[int,bytes],list[tuple[bytes,bytes]]]:
+    # 1. load vocab from json file
+    with open(file=vocab_filepath, mode="r", encoding="utf-8") as f:
+        vocab_raw = json.load(f)
+        vocab = {int(id):bytes.fromhex(token) for id, token in vocab_raw.items()}
+    
+    # 2. load merges from txt file
+    merges = []
+    with open(file=merges_filepath, mode="r", encoding="utf-8") as f:
+        for cur_line in f:
+            cur_line = cur_line.strip()
+            if not cur_line:
+                continue
+            byte1, byte2 = cur_line.split(" ")
+            merges.append((bytes.fromhex(byte1), bytes.fromhex(byte2)))
+    
+    return vocab, merges
+
+
+
 
 if __name__ == "__main__":
     pass
