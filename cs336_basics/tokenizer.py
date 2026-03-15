@@ -1,13 +1,14 @@
-from typing import Iterable, Iterator
-from .train_tokenizer import load_tokenizer
+from collections.abc import Iterable, Iterator
+
 import regex as re
 
-class Tokenizer():
+from .train_tokenizer import load_tokenizer
+
+
+class Tokenizer:
     def __init__(
-            self, 
-            vocab:dict[int, bytes], 
-            merges:list[tuple[bytes,bytes]], 
-            special_tokens:list[str]|None = None):
+        self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None
+    ):
         self.vocab = vocab
         self.merges = merges
         self.special_tokens = special_tokens or []
@@ -19,19 +20,15 @@ class Tokenizer():
             if special_token_bytes not in vocab.values():
                 self.vocab[append_id] = special_token_bytes
                 append_id += 1
-        
-        self.bytes2id = {token_bytes:id for id,token_bytes in self.vocab.items()}
+
+        self.bytes2id = {token_bytes: id for id, token_bytes in self.vocab.items()}
 
     @classmethod
-    def from_files(
-            cls,
-            vocab_filepath:str,
-            merges_filepath:str,
-            special_tokens:list[str]|None = None):
+    def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
         vocab, merges = load_tokenizer(vocab_filepath=vocab_filepath, merges_filepath=merges_filepath)
         return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
 
-    def encode(self, text:str)->list[int]:
+    def encode(self, text: str) -> list[int]:
         if self.special_tokens:
             # split text using special tokens
             escaped = [re.escape(token) for token in self.special_tokens]
@@ -42,7 +39,7 @@ class Tokenizer():
             split_chunks = [text]
 
         # create a ranking list of merges
-        merge_rank = {merge_pair:index for index, merge_pair in enumerate(self.merges)}
+        merge_rank = {merge_pair: index for index, merge_pair in enumerate(self.merges)}
 
         # do pre-tokenization for non-special_token chunks
         id_list = []
@@ -60,8 +57,8 @@ class Tokenizer():
                     bytes_tuple = tuple(bytes([i]) for i in pre_token_bytes)
                     while True:
                         cur_rank_dict = {}
-                        for i in range(len(bytes_tuple)-1):
-                            cur_pair = (bytes_tuple[i],bytes_tuple[i+1])
+                        for i in range(len(bytes_tuple) - 1):
+                            cur_pair = (bytes_tuple[i], bytes_tuple[i + 1])
                             if cur_pair in merge_rank:
                                 cur_rank_dict[cur_pair] = merge_rank[cur_pair]
                         if cur_rank_dict:
@@ -83,9 +80,12 @@ class Tokenizer():
                                 id_list.append(self.bytes2id[token])
                             break
         return id_list
-                
 
-    def encode_iterable(self, iterable:Iterable[str]) -> Iterator[int]:
-        pass
-    def decode(self, ids:list[int]) -> str:
-        pass
+    def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
+        for text in iterable:
+            yield from self.encode(text)
+
+    def decode(self, ids: list[int]) -> str:
+        bytes_list = [self.vocab[id] for id in ids]
+        bytes_to_decode = b"".join(bytes_list)
+        return bytes_to_decode.decode(encoding="utf-8", errors="replace")
