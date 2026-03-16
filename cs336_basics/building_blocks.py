@@ -49,10 +49,11 @@ class RMSNorm(nn.Module):
 
 
 class FFN(nn.Module):
-    def __init__(self, d_model: int, device=None, dtype=None):
+    def __init__(self, d_model: int, d_ff:int = None, device=None, dtype=None):
         super().__init__()
-        d_ff = d_model * 8 // 3
-        d_ff = 64 - (d_ff % 64) + d_ff
+        if not d_ff:
+            d_ff = d_model * 8 // 3
+            d_ff = 64 - (d_ff % 64) + d_ff
         self.linear1 = Linear(in_features=d_model, out_features=d_ff, device=device, dtype=dtype)
         self.linear2 = Linear(in_features=d_ff, out_features=d_model, device=device, dtype=dtype)
         self.linear3 = Linear(in_features=d_model, out_features=d_ff, device=device, dtype=dtype)
@@ -62,5 +63,5 @@ class FFN(nn.Module):
         activation = result * torch.sigmoid(result)
         gate = self.linear3(x)
         gated_result = activation * gate
-        output = self.linear(gated_result)
+        output = self.linear2(gated_result)
         return output
