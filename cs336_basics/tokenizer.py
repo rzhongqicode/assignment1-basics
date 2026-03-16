@@ -31,7 +31,8 @@ class Tokenizer:
     def encode(self, text: str) -> list[int]:
         if self.special_tokens:
             # split text using special tokens
-            escaped = [re.escape(token) for token in self.special_tokens]
+            sorted_specials = sorted(self.special_tokens, key=len, reverse=True)
+            escaped = [re.escape(token) for token in sorted_specials]
             split_pattern = "|".join(escaped)
             split_pattern = f"({split_pattern})"
             split_chunks = [piece for piece in re.split(pattern=split_pattern, string=text) if piece]
