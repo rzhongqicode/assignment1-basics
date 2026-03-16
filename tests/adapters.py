@@ -10,7 +10,7 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 from cs336_basics.train_tokenizer import train_bpe
-from cs336_basics.building_blocks import Linear, Embedding, RMSNorm
+from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN
 from cs336_basics.tokenizer import Tokenizer
 
 def run_linear(
@@ -97,6 +97,12 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
+    ffn = FFN(d_model=d_model, d_ff=d_ff)
+    ffn.linear1.weight.data = w1_weight
+    ffn.linear2.weight.data = w2_weight
+    ffn.linear3.weight.data = w3_weight
+    output = ffn(in_features)
+    return output
     raise NotImplementedError
 
 
