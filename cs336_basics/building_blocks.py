@@ -29,4 +29,18 @@ class Embedding(nn.Module):
         output = self.weight[token_ids]
         return output
 
+class RMSNorm(nn.Module):
+    def __init__(self, d_model:int, eps:float=1e-5, device=None, dtype=None):
+        super().__init__()
+        weight = torch.ones(size=[d_model], device=device, dtype=dtype)
+        self.weight = nn.Parameter(weight)
+        self.eps = eps
+    def forward(self, x:torch.Tensor)->torch.Tensor:
+        in_dtype = x.dtype
+        x = x.to(dtype=torch.float32)
+        variance = x.pow(2).mean(dim=-1 , keepdim=True)
+        x = x * torch.rsqrt(variance + self.eps)
+        x = x.to(dtype=in_dtype)
+        x = self.weight * x
+        return x
 
