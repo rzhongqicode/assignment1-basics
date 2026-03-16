@@ -1,6 +1,6 @@
 import math
 
-import jaxtyping
+from jaxtyping import Float, Bool
 import torch
 import torch.nn as nn
 from einops import einsum, rearrange
@@ -102,4 +102,24 @@ def softmax(in_features:torch.Tensor, dim:int)->torch.Tensor:
     in_features = torch.exp(in_features)
     sum_values = torch.sum(input=in_features, dim=dim, keepdim=True)
     output = in_features / sum_values
+    return output
+
+def scaled_dot_product_attention(
+    Q: Float[torch.Tensor, " ... query_len d_k"],
+    K: Float[torch.Tensor, " ... kv_len d_k"],
+    V: Float[torch.Tensor, " ... kv_len d_v"],
+    mask: Bool[torch.Tensor, "query_len kv_len"] | None = None,
+) -> Float[torch.Tensor, " ... query d_v"]:
+    
+    score = einsum(Q,K," ... query_len d_k, ... kv_len d_k -> ... query_len kv_len")
+
+    d_k = Q.size(-1)
+    scale_value = 1 / math.sqrt(d_k)
+    score = score * scale_value
+
+    if mask is not None: 
+        score = score.masked_fill(~mask, float('-inf'))
+
+    score = softmax(in_features=score, dim=-1)
+    output = einsum(score, V, "... query_len kv_len, ... kv_len d_v -> ... query_len d_v")
     return output
