@@ -44,3 +44,12 @@ class RMSNorm(nn.Module):
         x = self.weight * x
         return x
 
+class FFN(nn.Module):
+    def __init__(self, d_model:int, device = None, dtype = None):
+        super().__init__()
+        d_ff = d_model * 8 // 3
+        d_ff = 64 - (d_ff % 64) + d_ff
+        linear1 = Linear(in_features=d_model, out_features=d_ff,device=device,dtype=dtype)
+        linear2 = Linear(in_features=d_ff, out_features=d_model,device=device,dtype=dtype)
+        linear3 = Linear(in_features=d_model, out_features=d_ff,device=device,dtype=dtype)
+        
