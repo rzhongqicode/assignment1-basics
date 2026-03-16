@@ -65,3 +65,35 @@ class FFN(nn.Module):
         gated_result = activation * gate
         output = self.linear2(gated_result)
         return output
+    
+class RotaryPositionalEmbedding(nn.Module):
+    def __init__(self, theta:float, d_k:int, max_seq_len:int, device=None):
+        super().__init__()
+        k = torch.arange(start=1,end=d_k//2 + 1, step=1,device=device)
+        power = (2*k -2)/d_k
+        freq_array = torch.pow(theta, power)
+        freq_array.reciprocal_()
+        position_array = torch.arange(start=0, end=max_seq_len, step=1,device=device,dtype=torch.float32)
+        angle = torch.outer(position_array, freq_array)# [max_seq_len, d_k/2]
+        angle = torch.repeat_interleave(angle,2,dim=-1)# [max_seq_len, d_k]
+        sin_tensor = torch.sin(angle)
+        cos_tensor = torch.cos(angle)
+
+        # put them to buffer
+        self.register_buffer(name="sin_tensor", tensor=sin_tensor, persistent=False)
+        self.register_buffer(name="cos_tensor", tensor=cos_tensor, persistent=False)
+
+
+    def forward(self, x:torch.Tensor, token_positions:torch.Tensor)->torch.Tensor:
+        # x:"... sequence_len, d_k", token_positions:"..., sequence_len"
+        sin_term = self.sin_tensor[token_positions] #[... sequence_len, d_k]
+        cos_term = self.cos_tensor[token_positions] #[... sequence_len, d_k]
+        x_transformed = rearrange(x, "... seq_len (half two) -> ... seq_len half two", two=2)
+        first_part = x_transformed[..., 0]
+        second_part = x_transformed[..., 1]
+        x_rotated = torch.stack([-second_part,first_part],dim=-1)
+        x_final = rearrange(x_rotated, "... seq_len half two -> ... seq_len (half two)", two=2)#[... sequence_len, d_k]
+        output = x * cos_term + x_final * sin_term
+        return output
+
+
