@@ -10,7 +10,7 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 from cs336_basics.train_tokenizer import train_bpe
-from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention,Multihead_self_attention,Tranformer_block
+from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention,Multihead_self_attention,Transformer_block,Transformer_lm
 from cs336_basics.tokenizer import Tokenizer
 
 def run_linear(
@@ -321,7 +321,7 @@ def run_transformer_block(
     d_k = d_model // num_heads
     rope_module = RotaryPositionalEmbedding(theta=theta, d_k=d_k, max_seq_len=max_seq_len)
 
-    transformer_layer = Tranformer_block(d_model=d_model, num_heads=num_heads, d_ff=d_ff, rope_module=rope_module)
+    transformer_layer = Transformer_block(d_model=d_model, num_heads=num_heads, d_ff=d_ff, rope_module=rope_module)
     QKV = torch.concat((weights['attn.q_proj.weight'],weights['attn.k_proj.weight'],weights['attn.v_proj.weight']),dim=0)
     weight_to_load = {
         "attention_norm.weight":weights["ln1.weight"],
@@ -422,6 +422,36 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
+    model = Transformer_lm(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_model=d_model,
+        d_ff=d_ff,
+        rope_theta=rope_theta
+    )
+    #prepare the weights to load into model
+    weight_to_load = {
+        "embedding_layer.weight":weights["token_embeddings.weight"],
+        "final_norm.weight":weights["ln_final.weight"],
+        "final_linear.weight":weights["lm_head.weight"],
+    }
+    for i in range(num_layers):
+        QKV = torch.concat((weights[f"layers.{i}.attn.q_proj.weight"],weights[f"layers.{i}.attn.k_proj.weight"],weights[f"layers.{i}.attn.v_proj.weight"]),dim=0)
+        weight_to_load[f"transformer_layers.{i}.attention_layer.W_QKV.weight"] = QKV
+        weight_to_load[f"transformer_layers.{i}.attention_layer.Wo.weight"] = weights[f"layers.{i}.attn.output_proj.weight"]
+        weight_to_load[f"transformer_layers.{i}.attention_norm.weight"] = weights[f"layers.{i}.ln1.weight"]
+        weight_to_load[f"transformer_layers.{i}.ffn_norm.weight"] = weights[f"layers.{i}.ln2.weight"]
+        weight_to_load[f"transformer_layers.{i}.ffn_layer.linear1.weight"] = weights[f"layers.{i}.ffn.w1.weight"]
+        weight_to_load[f"transformer_layers.{i}.ffn_layer.linear2.weight"] = weights[f"layers.{i}.ffn.w2.weight"]
+        weight_to_load[f"transformer_layers.{i}.ffn_layer.linear3.weight"] = weights[f"layers.{i}.ffn.w3.weight"]
+
+    model.load_state_dict(weight_to_load)
+
+    output = model(input_ids=in_indices)
+    return output
+    
     raise NotImplementedError
 
 
