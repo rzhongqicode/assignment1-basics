@@ -1,6 +1,6 @@
 import math
 
-from jaxtyping import Float, Bool
+from jaxtyping import Float, Bool, Int
 import torch
 import torch.nn as nn
 from einops import einsum, rearrange
@@ -248,3 +248,32 @@ class Transformer_lm(nn.Module):
         return x
 
 
+def cross_entropy(input:Float[torch.Tensor, " batch_size vocab_size"], targets: Int[torch.Tensor, " batch_size"]):
+    # this solution will cause numerical unstability!
+    # # do softmax on the input
+    # probs = softmax(in_features=input, dim=-1)
+    
+    # # sample values and calculate
+    # batch_size = input.shape[0]
+    # batch_indices = torch.arange(batch_size, device=input.device)
+    # sampled_probs = probs[batch_indices, targets]
+    # loss = -torch.log(sampled_probs).mean()
+
+    # sample values
+    batch_size = input.shape[0]
+    batch_indices = torch.arange(batch_size, device=input.device)
+    sampled_logits = input[batch_indices, targets] # [batch_size]
+    
+    # find max value
+    max_values, _ = torch.max(input=input, dim=-1, keepdim=True) # [batch_size, 1]
+    
+    shifted_logits = input - max_values
+    exp_sum = torch.sum(input=torch.exp(shifted_logits), dim=-1) # [batch_size]
+    
+    # reshape max_values
+    max_values = max_values.squeeze(-1)
+
+    sample_losses = -sampled_logits + max_values + torch.log(exp_sum)
+    loss = sample_losses.mean()
+
+    return loss
