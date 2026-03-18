@@ -154,13 +154,13 @@ class Multihead_self_attention(nn.Module):
         output = self.Wo(output)
         return output
     
-class Tranformer_block(nn.Module):
-    def __init__(self, d_model:int, num_heads:int, d_ff:int, rope_module=None, eps1=1e-5, eps2=1e-5, device=None, dtype=None):
+class Transformer_block(nn.Module):
+    def __init__(self, d_model:int, num_heads:int, d_ff:int, rope_module=None, eps=1e-5, device=None, dtype=None):
         super().__init__()
         self.rope_module = rope_module
-        self.attention_norm = RMSNorm(d_model=d_model,eps=eps1, device=device, dtype=dtype)
+        self.attention_norm = RMSNorm(d_model=d_model,eps=eps, device=device, dtype=dtype)
         self.attention_layer = Multihead_self_attention(d_model=d_model, num_heads=num_heads, rope_module=rope_module, device=device, dtype=dtype)
-        self.ffn_norm = RMSNorm(d_model=d_model, eps=eps2, device=device, dtype=dtype)
+        self.ffn_norm = RMSNorm(d_model=d_model, eps=eps, device=device, dtype=dtype)
         self.ffn_layer = FFN(d_model=d_model, d_ff=d_ff, device=device, dtype=dtype)
 
     def forward(self, input:torch.Tensor, token_positions=None):
@@ -171,3 +171,80 @@ class Tranformer_block(nn.Module):
         variable2 = self.ffn_layer(variable2)
         output = result_first_layer + variable2
         return output
+
+class Transformer_lm(nn.Module):
+    def __init__(
+            self, 
+            vocab_size:int, 
+            context_length:int, 
+            num_layers:int, 
+            num_heads:int,
+            d_model:int, 
+            d_ff:int,
+            rope_theta:float,
+            eps=1e-5,
+            dtype=None,
+            device=None
+            ):
+        super().__init__()
+        # 1. embedding layer
+        self.embedding_layer= Embedding(
+                num_embeddings=vocab_size,
+                embedding_dim=d_model,
+                device=device,
+                dtype=dtype
+                )
+        # 2. global RoPE module
+        d_k = d_model // num_heads
+        self.rope_module = RotaryPositionalEmbedding(
+                                theta=rope_theta,
+                                d_k = d_k,
+                                max_seq_len=context_length,
+                                device=device
+                                )
+        # 3. num_layers Transformer blocks
+        self.transformer_layers = nn.ModuleList([
+            Transformer_block(
+                d_model=d_model,
+                num_heads=num_heads,
+                d_ff=d_ff,
+                rope_module=self.rope_module,
+                eps=eps,
+                device=device,
+                dtype=dtype
+            ) for _ in range(num_layers)
+        ])
+        # 4. final norm
+        self.final_norm = RMSNorm(
+                        d_model=d_model, 
+                        eps=eps, 
+                        device=device, 
+                        dtype=dtype
+                        )
+        # 5. final ffn
+        self.final_linear = Linear(
+                        in_features=d_model, 
+                        out_features=vocab_size,
+                        device=device,
+                        dtype=dtype
+                        )
+
+    def forward(self, input_ids:torch.Tensor, token_positions:torch.Tensor | None = None):
+        # if no token_position, we use default case
+        if token_positions is None:
+            seq_len = input_ids.shape[1]
+            token_positions = torch.arange(start=0, end=seq_len, device=input_ids.device)
+        # pass through embedding
+        x = self.embedding_layer(input_ids)
+        # pass through transformer blocks
+        for layer in self.transformer_layers:
+            x = layer(input=x, token_positions=token_positions)
+        # pass through final norm layer
+        x = self.final_norm(x)
+        #pass through final linear layer
+        x = self.final_linear(x)
+
+        # return x without softmax
+        return x
+
+
