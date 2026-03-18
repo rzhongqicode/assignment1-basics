@@ -154,3 +154,20 @@ class Multihead_self_attention(nn.Module):
         output = self.Wo(output)
         return output
     
+class Tranformer_block(nn.Module):
+    def __init__(self, d_model:int, num_heads:int, d_ff:int, rope_module=None, eps1=1e-5, eps2=1e-5, device=None, dtype=None):
+        super().__init__()
+        self.rope_module = rope_module
+        self.attention_norm = RMSNorm(d_model=d_model,eps=eps1, device=device, dtype=dtype)
+        self.attention_layer = Multihead_self_attention(d_model=d_model, num_heads=num_heads, rope_module=rope_module, device=device, dtype=dtype)
+        self.ffn_norm = RMSNorm(d_model=d_model, eps=eps2, device=device, dtype=dtype)
+        self.ffn_layer = FFN(d_model=d_model, d_ff=d_ff, device=device, dtype=dtype)
+
+    def forward(self, input:torch.Tensor, token_positions=None):
+        variable1 = self.attention_norm(input)
+        variable1 = self.attention_layer(input=variable1, token_positions=token_positions)
+        result_first_layer = input + variable1
+        variable2 = self.ffn_norm(result_first_layer)
+        variable2 = self.ffn_layer(variable2)
+        output = result_first_layer + variable2
+        return output
