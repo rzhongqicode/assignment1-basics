@@ -123,3 +123,34 @@ def scaled_dot_product_attention(
     score = softmax(in_features=score, dim=-1)
     output = einsum(score, V, "... query_len kv_len, ... kv_len d_v -> ... query_len d_v")
     return output
+
+class multihead_self_attention(nn.Module):
+    def __init__(self, d_model:int, num_heads:int, rope_module=None, device=None, dtype=None):
+        super().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.rope = rope_module
+        # d_k = d_v = d_model // num_heads
+        self.W_QKV = Linear(in_features=d_model, out_features=3*d_model, device=device, dtype=dtype)
+        self.Wo = Linear(in_features=d_model, out_features=d_model, device=device, dtype=dtype)
+
+    # in this case, Q, K, V have the same 'seq_len'
+    def forward(self, input:torch.Tensor, token_positions=None)->torch.Tensor:
+        QKV = self.W_QKV(input)
+        Q, K, V = torch.chunk(input=QKV, chunks=3, dim=-1)
+        seq_len = input.shape[-2]
+        Q = rearrange(Q, "... seq_len (num_heads qk_dim) -> ... num_heads seq_len qk_dim", num_heads = self.num_heads)
+        K = rearrange(K, "... seq_len (num_heads qk_dim) -> ... num_heads seq_len qk_dim", num_heads = self.num_heads)
+        if self.rope is not None and token_positions is not None:
+            Q = self.rope(Q,token_positions)
+            K = self.rope(K,token_positions)
+
+        V = rearrange(V, "... seq_len (num_heads v_dim) -> ... num_heads seq_len v_dim", num_heads = self.num_heads)
+        causal_msak = torch.ones(size=(seq_len,seq_len), dtype=torch.bool, device=input.device)
+        causal_msak = torch.tril(causal_msak)
+        output = scaled_dot_product_attention(Q,K,V,mask=causal_msak)
+        # rearrange function is not in-place operation!
+        output = rearrange(output, "... num_heads seq_len v_dim -> ... seq_len (num_heads v_dim)", num_heads=self.num_heads)
+        output = self.Wo(output)
+        return output
+    
