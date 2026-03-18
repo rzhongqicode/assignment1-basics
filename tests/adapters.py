@@ -10,7 +10,7 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 from cs336_basics.train_tokenizer import train_bpe
-from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention
+from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention,multihead_self_attention
 from cs336_basics.tokenizer import Tokenizer
 
 def run_linear(
@@ -160,6 +160,15 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
+    multihead_attention_layer = multihead_self_attention(d_model=d_model, num_heads=num_heads)
+    qkv = torch.concat((q_proj_weight,k_proj_weight,v_proj_weight), dim=0)
+    weights = {
+        "W_QKV.weight":qkv,
+        "Wo.weight":o_proj_weight
+        }
+    multihead_attention_layer.load_state_dict(weights)
+    output = multihead_attention_layer(input=in_features)
+    return output
     raise NotImplementedError
 
 
@@ -200,6 +209,17 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
+    d_k = d_model // num_heads
+    rope_module = RotaryPositionalEmbedding(theta=theta, d_k=d_k, max_seq_len=max_seq_len)
+    multihead_attention_layer = multihead_self_attention(d_model=d_model, num_heads=num_heads,rope_module=rope_module)
+    qkv = torch.concat((q_proj_weight,k_proj_weight,v_proj_weight), dim=0)
+    weights = {
+        "W_QKV.weight":qkv,
+        "Wo.weight":o_proj_weight
+        }
+    multihead_attention_layer.load_state_dict(weights)
+    output = multihead_attention_layer(input=in_features, token_positions=token_positions)
+    return output
     raise NotImplementedError
 
 
