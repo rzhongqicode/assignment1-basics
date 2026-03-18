@@ -124,7 +124,7 @@ def scaled_dot_product_attention(
     output = einsum(score, V, "... query_len kv_len, ... kv_len d_v -> ... query_len d_v")
     return output
 
-class multihead_self_attention(nn.Module):
+class Multihead_self_attention(nn.Module):
     def __init__(self, d_model:int, num_heads:int, rope_module=None, device=None, dtype=None):
         super().__init__()
         self.d_model = d_model
