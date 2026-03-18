@@ -10,7 +10,7 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 from cs336_basics.train_tokenizer import train_bpe
-from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention,Multihead_self_attention
+from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention,Multihead_self_attention,Tranformer_block
 from cs336_basics.tokenizer import Tokenizer
 
 def run_linear(
@@ -318,6 +318,28 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
+    d_k = d_model // num_heads
+    rope_module = RotaryPositionalEmbedding(theta=theta, d_k=d_k, max_seq_len=max_seq_len)
+
+    transformer_layer = Tranformer_block(d_model=d_model, num_heads=num_heads, d_ff=d_ff, rope_module=rope_module)
+    QKV = torch.concat((weights['attn.q_proj.weight'],weights['attn.k_proj.weight'],weights['attn.v_proj.weight']),dim=0)
+    weight_to_load = {
+        "attention_norm.weight":weights["ln1.weight"],
+        "attention_layer.W_QKV.weight":QKV,
+        "attention_layer.Wo.weight":weights["attn.output_proj.weight"],
+        "ffn_norm.weight":weights["ln2.weight"],
+        "ffn_layer.linear1.weight":weights["ffn.w1.weight"],
+        "ffn_layer.linear2.weight":weights["ffn.w2.weight"],
+        "ffn_layer.linear3.weight":weights["ffn.w3.weight"]
+    }
+    transformer_layer.load_state_dict(weight_to_load)
+
+    seq_len = in_features.shape[-2]
+    token_positions = torch.arange(start=0, end=seq_len, step=1, device=in_features.device)
+    token_positions.unsqueeze_(0)
+
+    output = transformer_layer(input=in_features, token_positions=token_positions)
+    return output
     raise NotImplementedError
 
 
