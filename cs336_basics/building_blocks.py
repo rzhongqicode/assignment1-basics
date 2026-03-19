@@ -1,6 +1,8 @@
 import math
 
+from typing import Optional
 from jaxtyping import Float, Bool, Int
+from collections.abc import Callable, Iterable 
 import torch
 import torch.nn as nn
 from einops import einsum, rearrange
@@ -277,3 +279,66 @@ def cross_entropy(input:Float[torch.Tensor, " batch_size vocab_size"], targets: 
     loss = sample_losses.mean()
 
     return loss
+
+
+class AdamW(torch.optim.Optimizer):
+    def __init__(self, params, lr, weight_decay, betas=(0.9,0.95), eps=1e-8):
+        if lr < 0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        defaults = {
+            "lr":lr,
+            "lambda":weight_decay,
+            "beta1":betas[0],
+            "beta2":betas[1],
+            "eps":eps,
+        }
+        super().__init__(params=params, defaults=defaults)
+    
+    def step(self, closure:Optional[Callable] = None):
+        loss = None if closure is None else closure()
+
+        for group in self.param_groups:
+            lr = group["lr"]
+            decay_lambda = group["lambda"]
+            beta1 = group["beta1"]
+            beta2 = group["beta2"]
+            eps = group["eps"]
+
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+                
+                # get current state
+                state = self.state[p]
+                grad = p.grad.data
+
+                # state initialization
+                if len(state) == 0:
+                    state["t"] = 1
+                    state["first_moment_estimate"] = torch.zeros_like(p.data)
+                    state["second_moment_estimate"] = torch.zeros_like(p.data)
+
+
+                t = state["t"]
+                first_moment_estimate = state["first_moment_estimate"]
+                second_moment_estimate = state["second_moment_estimate"]
+
+                # update first moment estimate
+                first_moment_estimate = beta1 * first_moment_estimate + (1 - beta1) * grad
+                # update second moment estimate
+                second_moment_estimate = beta2 * second_moment_estimate + (1 - beta2) * torch.square(grad)
+
+                # adjusted learning rate
+                adjusted_lr = math.sqrt(1 - beta2 ** t) / (1 - beta1 ** t) * lr
+
+                # apply weight decay
+                p.data -= lr * decay_lambda * p.data
+                # Update the parameters
+                p.data -= adjusted_lr * (first_moment_estimate / (torch.sqrt(second_moment_estimate) + eps))
+
+                # update state
+                state["t"] = t+1
+                state["first_moment_estimate"] = first_moment_estimate
+                state["second_moment_estimate"] = second_moment_estimate
+
+        return loss
