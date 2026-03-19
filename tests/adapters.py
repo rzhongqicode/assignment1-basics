@@ -11,7 +11,7 @@ from torch import Tensor
 
 from cs336_basics.train_tokenizer import train_bpe
 from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention,Multihead_self_attention,Transformer_block,Transformer_lm
-from cs336_basics.building_blocks import cross_entropy
+from cs336_basics.building_blocks import cross_entropy, AdamW
 from cs336_basics.tokenizer import Tokenizer
 
 def run_linear(
@@ -575,6 +575,7 @@ def get_adamw_cls() -> Any:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
+    return AdamW
     raise NotImplementedError
 
 
