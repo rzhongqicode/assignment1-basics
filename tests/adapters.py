@@ -20,6 +20,7 @@ from cs336_basics.building_blocks import (
     Transformer_block,
     Transformer_lm,
     cross_entropy,
+    gradient_clipping,
     learning_rate_schedule,
     scaled_dot_product_attention,
     softmax,
@@ -586,6 +587,8 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
+    gradient_clipping(params=parameters, max_norm=max_l2_norm)
+    return
     raise NotImplementedError
 
 
