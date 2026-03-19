@@ -9,10 +9,24 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics.train_tokenizer import train_bpe
-from cs336_basics.building_blocks import Linear, Embedding, RMSNorm, FFN, RotaryPositionalEmbedding, softmax, scaled_dot_product_attention,Multihead_self_attention,Transformer_block,Transformer_lm
-from cs336_basics.building_blocks import cross_entropy, AdamW
+from cs336_basics.building_blocks import (
+    FFN,
+    AdamW,
+    Embedding,
+    Linear,
+    Multihead_self_attention,
+    RMSNorm,
+    RotaryPositionalEmbedding,
+    Transformer_block,
+    Transformer_lm,
+    cross_entropy,
+    learning_rate_schedule,
+    scaled_dot_product_attention,
+    softmax,
+)
 from cs336_basics.tokenizer import Tokenizer
+from cs336_basics.train_tokenizer import train_bpe
+
 
 def run_linear(
     d_in: int,
@@ -33,12 +47,11 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
     linear_layer = Linear(in_features=d_in, out_features=d_out)
-    state_dict_to_load = {"weight":weights}
+    state_dict_to_load = {"weight": weights}
     linear_layer.load_state_dict(state_dict_to_load)
 
     result = linear_layer(in_features)
     return result
-
 
     raise NotImplementedError
 
@@ -62,7 +75,7 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
     embedding_layer = Embedding(num_embeddings=vocab_size, embedding_dim=d_model)
-    weight_dict_to_load = {"weight":weights}
+    weight_dict_to_load = {"weight": weights}
     embedding_layer.load_state_dict(weight_dict_to_load)
     output = embedding_layer(token_ids)
     return output
@@ -125,7 +138,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    result = scaled_dot_product_attention(Q,K,V,mask)
+    result = scaled_dot_product_attention(Q, K, V, mask)
     return result
     raise NotImplementedError
 
@@ -162,11 +175,8 @@ def run_multihead_self_attention(
         implementation with the given QKV projection weights and input features.
     """
     multihead_attention_layer = Multihead_self_attention(d_model=d_model, num_heads=num_heads)
-    qkv = torch.concat((q_proj_weight,k_proj_weight,v_proj_weight), dim=0)
-    weights = {
-        "W_QKV.weight":qkv,
-        "Wo.weight":o_proj_weight
-        }
+    qkv = torch.concat((q_proj_weight, k_proj_weight, v_proj_weight), dim=0)
+    weights = {"W_QKV.weight": qkv, "Wo.weight": o_proj_weight}
     multihead_attention_layer.load_state_dict(weights)
     output = multihead_attention_layer(input=in_features)
     return output
@@ -212,12 +222,9 @@ def run_multihead_self_attention_with_rope(
     """
     d_k = d_model // num_heads
     rope_module = RotaryPositionalEmbedding(theta=theta, d_k=d_k, max_seq_len=max_seq_len)
-    multihead_attention_layer = Multihead_self_attention(d_model=d_model, num_heads=num_heads,rope_module=rope_module)
-    qkv = torch.concat((q_proj_weight,k_proj_weight,v_proj_weight), dim=0)
-    weights = {
-        "W_QKV.weight":qkv,
-        "Wo.weight":o_proj_weight
-        }
+    multihead_attention_layer = Multihead_self_attention(d_model=d_model, num_heads=num_heads, rope_module=rope_module)
+    qkv = torch.concat((q_proj_weight, k_proj_weight, v_proj_weight), dim=0)
+    weights = {"W_QKV.weight": qkv, "Wo.weight": o_proj_weight}
     multihead_attention_layer.load_state_dict(weights)
     output = multihead_attention_layer(input=in_features, token_positions=token_positions)
     return output
@@ -323,15 +330,17 @@ def run_transformer_block(
     rope_module = RotaryPositionalEmbedding(theta=theta, d_k=d_k, max_seq_len=max_seq_len)
 
     transformer_layer = Transformer_block(d_model=d_model, num_heads=num_heads, d_ff=d_ff, rope_module=rope_module)
-    QKV = torch.concat((weights['attn.q_proj.weight'],weights['attn.k_proj.weight'],weights['attn.v_proj.weight']),dim=0)
+    QKV = torch.concat(
+        (weights["attn.q_proj.weight"], weights["attn.k_proj.weight"], weights["attn.v_proj.weight"]), dim=0
+    )
     weight_to_load = {
-        "attention_norm.weight":weights["ln1.weight"],
-        "attention_layer.W_QKV.weight":QKV,
-        "attention_layer.Wo.weight":weights["attn.output_proj.weight"],
-        "ffn_norm.weight":weights["ln2.weight"],
-        "ffn_layer.linear1.weight":weights["ffn.w1.weight"],
-        "ffn_layer.linear2.weight":weights["ffn.w2.weight"],
-        "ffn_layer.linear3.weight":weights["ffn.w3.weight"]
+        "attention_norm.weight": weights["ln1.weight"],
+        "attention_layer.W_QKV.weight": QKV,
+        "attention_layer.Wo.weight": weights["attn.output_proj.weight"],
+        "ffn_norm.weight": weights["ln2.weight"],
+        "ffn_layer.linear1.weight": weights["ffn.w1.weight"],
+        "ffn_layer.linear2.weight": weights["ffn.w2.weight"],
+        "ffn_layer.linear3.weight": weights["ffn.w3.weight"],
     }
     transformer_layer.load_state_dict(weight_to_load)
 
@@ -430,18 +439,27 @@ def run_transformer_lm(
         num_heads=num_heads,
         d_model=d_model,
         d_ff=d_ff,
-        rope_theta=rope_theta
+        rope_theta=rope_theta,
     )
-    #prepare the weights to load into model
+    # prepare the weights to load into model
     weight_to_load = {
-        "embedding_layer.weight":weights["token_embeddings.weight"],
-        "final_norm.weight":weights["ln_final.weight"],
-        "final_linear.weight":weights["lm_head.weight"],
+        "embedding_layer.weight": weights["token_embeddings.weight"],
+        "final_norm.weight": weights["ln_final.weight"],
+        "final_linear.weight": weights["lm_head.weight"],
     }
     for i in range(num_layers):
-        QKV = torch.concat((weights[f"layers.{i}.attn.q_proj.weight"],weights[f"layers.{i}.attn.k_proj.weight"],weights[f"layers.{i}.attn.v_proj.weight"]),dim=0)
+        QKV = torch.concat(
+            (
+                weights[f"layers.{i}.attn.q_proj.weight"],
+                weights[f"layers.{i}.attn.k_proj.weight"],
+                weights[f"layers.{i}.attn.v_proj.weight"],
+            ),
+            dim=0,
+        )
         weight_to_load[f"transformer_layers.{i}.attention_layer.W_QKV.weight"] = QKV
-        weight_to_load[f"transformer_layers.{i}.attention_layer.Wo.weight"] = weights[f"layers.{i}.attn.output_proj.weight"]
+        weight_to_load[f"transformer_layers.{i}.attention_layer.Wo.weight"] = weights[
+            f"layers.{i}.attn.output_proj.weight"
+        ]
         weight_to_load[f"transformer_layers.{i}.attention_norm.weight"] = weights[f"layers.{i}.ln1.weight"]
         weight_to_load[f"transformer_layers.{i}.ffn_norm.weight"] = weights[f"layers.{i}.ln2.weight"]
         weight_to_load[f"transformer_layers.{i}.ffn_layer.linear1.weight"] = weights[f"layers.{i}.ffn.w1.weight"]
@@ -452,7 +470,7 @@ def run_transformer_lm(
 
     output = model(input_ids=in_indices)
     return output
-    
+
     raise NotImplementedError
 
 
@@ -477,7 +495,7 @@ def run_rmsnorm(
         RMSNorm of the `in_features`.
     """
     rmsnorm_layer = RMSNorm(d_model, eps)
-    weights_to_load = {"weight":weights}
+    weights_to_load = {"weight": weights}
     rmsnorm_layer.load_state_dict(weights_to_load)
     output = rmsnorm_layer(in_features)
     return output
@@ -534,7 +552,7 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
-    output = softmax(in_features=in_features,dim=dim)
+    output = softmax(in_features=in_features, dim=dim)
     return output
     raise NotImplementedError
 
@@ -604,6 +622,9 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
+    return learning_rate_schedule(
+        t=it, alpha_max=max_learning_rate, alpha_min=min_learning_rate, T_w=warmup_iters, T_c=cosine_cycle_iters
+    )
     raise NotImplementedError
 
 
@@ -699,9 +720,5 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    return train_bpe(
-        file_path=input_path, 
-        vocab_size=vocab_size, 
-        special_tokens=special_tokens
-    )
+    return train_bpe(file_path=input_path, vocab_size=vocab_size, special_tokens=special_tokens)
     raise NotImplementedError
