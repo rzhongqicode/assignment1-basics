@@ -378,3 +378,15 @@ def data_loader(dataset:npt.NDArray, batch_size:int, context_length:int, device:
     targets = torch.tensor(np.stack(targets_list), dtype=torch.long, device=device)
     return inputs, targets
 
+def save_checkpoint(model, optimizer, iteration, out):
+    dict_to_save = {}
+    dict_to_save["model"] = model.state_dict()
+    dict_to_save["optimizer"] = optimizer.state_dict()
+    dict_to_save["iteration"] = iteration
+    torch.save(dict_to_save, out)
+
+def load_checkpoint(src, model, optimizer):
+    checkpoint_dict = torch.load(f=src)
+    model.load_state_dict(checkpoint_dict["model"])
+    optimizer.load_state_dict(checkpoint_dict["optimizer"])
+    return checkpoint_dict["iteration"]
