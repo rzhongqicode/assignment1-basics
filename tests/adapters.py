@@ -24,6 +24,7 @@ from cs336_basics.building_blocks import (
     learning_rate_schedule,
     scaled_dot_product_attention,
     softmax,
+    data_loader
 )
 from cs336_basics.tokenizer import Tokenizer
 from cs336_basics.train_tokenizer import train_bpe
@@ -537,6 +538,8 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
+    inputs, targets = data_loader(dataset=dataset, batch_size=batch_size, context_length=context_length, device=device)
+    return inputs, targets
     raise NotImplementedError
 
 
