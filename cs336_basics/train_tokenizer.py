@@ -181,7 +181,9 @@ def load_tokenizer(vocab_filepath:str, merges_filepath:str)->tuple[dict[int,byte
     return vocab, merges
 
 
-
-
 if __name__ == "__main__":
-    pass
+    file_path = "./data/TinyStoriesV2-GPT4-train.txt"
+    vocab_size = 10000
+    special_tokens = ["<|endoftext|>"]
+    vocab, merges = train_bpe(file_path, vocab_size, special_tokens)
+    save_tokenizer(vocab, merges, "tiny_vocab.json", "tiny_merges.txt")
