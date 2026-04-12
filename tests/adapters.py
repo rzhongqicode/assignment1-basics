@@ -24,6 +24,9 @@ from cs336_basics.building_blocks import (
     learning_rate_schedule,
     scaled_dot_product_attention,
     softmax,
+    data_loader,
+    load_checkpoint,
+    save_checkpoint
 )
 from cs336_basics.tokenizer import Tokenizer
 from cs336_basics.train_tokenizer import train_bpe
@@ -537,6 +540,8 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
+    inputs, targets = data_loader(dataset=dataset, batch_size=batch_size, context_length=context_length, device=device)
+    return inputs, targets
     raise NotImplementedError
 
 
@@ -647,6 +652,8 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
+    save_checkpoint(model=model, optimizer=optimizer, iteration=iteration, out=out)
+    return
     raise NotImplementedError
 
 
@@ -668,6 +675,8 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
+    iteration = load_checkpoint(src=src, model=model, optimizer=optimizer)
+    return iteration
     raise NotImplementedError
 
 
