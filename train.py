@@ -168,3 +168,7 @@ def main():
     checkpoint_path = "./checkpoint/ckpt_final.pt"
     save_checkpoint(model=model, optimizer=optimizer, iteration=t, out=checkpoint_path)
     print("🎉 Training Complete!")
+
+
+if __name__ == "__main__":
+    main()
