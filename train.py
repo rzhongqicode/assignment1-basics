@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import numpy as np
 import torch
@@ -17,6 +18,8 @@ from cs336_basics.building_blocks import (
 
 
 def main():
+    # make dir to save the model
+    os.makedirs(name="./checkpoint", exist_ok=True)
 
     # parse the arguments
     parser = argparse.ArgumentParser(description="input all the arguments to train the model")
@@ -157,11 +160,11 @@ def main():
             model.train()
         # save checkpoint during training
         if t == steps // 3 or t == steps * 2 // 3:
-            checkpoint_path = f"ckpt_step_{t}.pt"
+            checkpoint_path = f"./checkpoint/ckpt_step_{t}.pt"
             save_checkpoint(model=model, optimizer=optimizer, iteration=t, out=checkpoint_path)
             tqdm.write(f"💾 Checkpoint saved: {checkpoint_path}")
 
     # save final checkpoint
-    checkpoint_path = "ckpt_final.pt"
+    checkpoint_path = "./checkpoint/ckpt_final.pt"
     save_checkpoint(model=model, optimizer=optimizer, iteration=t, out=checkpoint_path)
     print("🎉 Training Complete!")
