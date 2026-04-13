@@ -2,11 +2,11 @@ import math
 from collections.abc import Callable, Iterable
 from typing import Optional
 
+import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn as nn
 from einops import einsum, rearrange
-import numpy.typing as npt 
-import numpy as np
 from jaxtyping import Bool, Float, Int
 
 
@@ -366,17 +366,21 @@ def gradient_clipping(params, max_norm, eps=1e-6):
         for p in params:
             p.grad.data *= sacling_factor
 
-def data_loader(dataset:npt.NDArray, batch_size:int, context_length:int, device:str)->tuple[torch.Tensor, torch.Tensor]:
+
+def data_loader(
+    dataset: npt.NDArray, batch_size: int, context_length: int, device: str
+) -> tuple[torch.Tensor, torch.Tensor]:
     dataset_len = len(dataset)
-    start_index = torch.randint(low=0, high=dataset_len-context_length, size=(batch_size, ), device=device).tolist()
+    start_index = torch.randint(low=0, high=dataset_len - context_length, size=(batch_size,), device=device).tolist()
     # inputs = torch.empty(size=(batch_size, context_length), dtype=torch.int64, device=device)
     # targets = torch.empty(size=(batch_size, context_length), dtype=torch.int64, device=device)
-    inputs_list = [dataset[start:start+context_length] for start in start_index]
-    targets_list = [dataset[start+1:start+context_length+1] for start in start_index]
-    
+    inputs_list = [dataset[start : start + context_length] for start in start_index]
+    targets_list = [dataset[start + 1 : start + context_length + 1] for start in start_index]
+
     inputs = torch.tensor(np.stack(inputs_list), dtype=torch.long, device=device)
     targets = torch.tensor(np.stack(targets_list), dtype=torch.long, device=device)
     return inputs, targets
+
 
 def save_checkpoint(model, optimizer, iteration, out):
     dict_to_save = {}
@@ -384,6 +388,7 @@ def save_checkpoint(model, optimizer, iteration, out):
     dict_to_save["optimizer"] = optimizer.state_dict()
     dict_to_save["iteration"] = iteration
     torch.save(dict_to_save, out)
+
 
 def load_checkpoint(src, model, optimizer):
     checkpoint_dict = torch.load(f=src)
