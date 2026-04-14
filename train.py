@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import torch
+import wandb
 from einops import rearrange
 from tqdm import tqdm
 
@@ -25,8 +26,8 @@ def main():
     parser = argparse.ArgumentParser(description="input all the arguments to train the model")
     parser.add_argument("training", help="training data file name")
     parser.add_argument("validation", help="validation data file name")
-    parser.add_argument("-b", "--batch_size", type=int, default=16, help="batch size")
-    parser.add_argument("-s", "--step", type=int, default=10000, help="training steps")
+    parser.add_argument("-b", "--batch_size", type=int, default=32, help="batch size")
+    parser.add_argument("-s", "--step", type=int, default=40000, help="training steps")
 
     args = parser.parse_args()
     training_file = args.training
@@ -36,11 +37,11 @@ def main():
 
     # parameters
     vocab_size = 10000
-    context_length = 512
-    num_layers = 12
-    num_heads = 8
+    context_length = 256
+    num_layers = 4
+    num_heads = 16
     d_model = 512
-    d_ff = int(8 / 3 * d_model)
+    d_ff = 1344
     theta = 10000
 
     weight_decay = 0.05
@@ -50,6 +51,26 @@ def main():
     T_c = steps
 
     max_grad_norm = 1.0
+
+    # init wandb
+    run = wandb.init(
+        project="cs336-assignment1-tinystory",
+        name="start run",
+        config={
+            "batch_size": batch_size,
+            "steps": steps,
+            "vocab_size": vocab_size,
+            "context_length": context_length,
+            "num_layers": num_layers,
+            "num_heads": num_heads,
+            "d_model": d_model,
+            "d_ff": d_ff,
+            "weight_decay": weight_decay,
+            "lr_max": alpha_max,
+            "lr_min": alpha_min,
+            "max_grad_norm": max_grad_norm,
+        },
+    )
 
     # progress bar
     pbar = tqdm(range(1, steps + 1), desc="🚀 Training Model")
@@ -125,6 +146,9 @@ def main():
         # update the prefix info of the progress bar
         pbar.set_postfix({"Loss": f"{loss.item():.4f}", "LR": f"{lr:.6e}"})
 
+        # log to wandb
+        run.log({"train/loss": loss.item(), "train/lr": lr, "step": t})
+
         # print training log
         if t % 100 == 0:
             print(f"Step: {t}/{steps}, LR: {lr:.6f}, Train loss: {loss.item():.4f}")
@@ -155,6 +179,8 @@ def main():
 
                 # 3. use tqdm.write to replace print，preventing disrupting the progress bar display
                 tqdm.write(f"🌟 Step: {t} | Validation loss: {val_loss:.4f}")
+                # log validation info to wandb
+                run.log({"val/loss": val_loss, "step": t})
 
                 # print(f"{'=' * 10}Step: {t}, Validation loss: {val_loss:.4f}{'=' * 10}")
             model.train()
@@ -168,6 +194,8 @@ def main():
     checkpoint_path = "./checkpoint/ckpt_final.pt"
     save_checkpoint(model=model, optimizer=optimizer, iteration=t, out=checkpoint_path)
     print("🎉 Training Complete!")
+    # finish this log run
+    run.finish()
 
 
 if __name__ == "__main__":
