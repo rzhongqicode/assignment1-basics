@@ -1,9 +1,8 @@
 import argparse
 
 import torch
-from einops import rearrange
 
-from cs336_basics.building_blocks import load_checkpoint, softmax
+from cs336_basics.building_blocks import AdamW, Transformer_lm, load_checkpoint, softmax
 from cs336_basics.tokenizer import Tokenizer
 
 
@@ -90,9 +89,53 @@ def main():
     args = parser.parse_args()
     model_path = args.model_path
     vocab_path = args.vocab_path
-    mergse_path = args.merges_path
+    merges_path = args.merges_path
     prompt = args.prompt
     temperature = args.temperature
     max_generate_length = args.max_generate_length
     context_length = args.context_length
     top_p = args.top_p
+
+    # load model
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = Transformer_lm(
+        vocab_size=10000,
+        context_length=context_length,
+        num_layers=12,
+        num_heads=8,
+        d_model=512,
+        d_ff=int(8 / 3 * 512),
+        rope_theta=10000,
+        device=device,
+    )
+    model.to(device)
+    # weight_decay = 0.05
+    # optimizer = AdamW(params=model.parameters(), lr=0.0, weight_decay=weight_decay)
+    # t = load_checkpoint(src=model_path, model=model, optimizer=optimizer)
+    checkpoint_dict = torch.load(f=model_path, map_location=device)
+    model.load_state_dict(checkpoint_dict["model"])
+    print(f"model load successfully! model path: {model_path}")
+
+    # load tokenizer
+    special_tokens = ["<|endoftext|>"]
+    tokenizer = Tokenizer.from_files(
+        vocab_filepath=vocab_path, merges_filepath=merges_path, special_tokens=special_tokens
+    )
+
+    # generate response
+    print("generating... please wait~")
+    output = generate(
+        model=model,
+        tokenizer=tokenizer,
+        prompt=prompt,
+        temperature=temperature,
+        max_generate_length=max_generate_length,
+        context_length=context_length,
+        top_p=top_p,
+    )
+
+    print(f"response: {output}")
+
+
+if __name__ == "__main__":
+    main()
