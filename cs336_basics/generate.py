@@ -80,17 +80,18 @@ def main():
     parser.add_argument("model_path", help="model path")
     parser.add_argument("vocab_path", help="vocab_path")
     parser.add_argument("merges_path", help="merges_path")
-    parser.add_argument("prompt", help="prompt")
+    # parser.add_argument("prompt", help="prompt")
     parser.add_argument("-t", "--temperature", type=float, default=1.0, help="temperature")
-    parser.add_argument("-m", "--max_generate_length", type=int, default=100, help="maximum of generated text length")
-    parser.add_argument("-c", "--context_length", type=int, default=512, help="context length of the model")
+    parser.add_argument("-m", "--max_generate_length", type=int, default=1000, help="maximum of generated text length")
+    parser.add_argument("-c", "--context_length", type=int, default=256, help="context length of the model")
     parser.add_argument("-p", "--top_p", type=float, default=1.0, help="top p")
 
     args = parser.parse_args()
     model_path = args.model_path
     vocab_path = args.vocab_path
     merges_path = args.merges_path
-    prompt = args.prompt
+    # prompt = args.prompt
+    prompt = "Once upon a time, there was a pretty girl named Lily. "
     temperature = args.temperature
     max_generate_length = args.max_generate_length
     context_length = args.context_length
@@ -101,10 +102,10 @@ def main():
     model = Transformer_lm(
         vocab_size=10000,
         context_length=context_length,
-        num_layers=12,
-        num_heads=8,
+        num_layers=4,
+        num_heads=16,
         d_model=512,
-        d_ff=int(8 / 3 * 512),
+        d_ff=1344,
         rope_theta=10000,
         device=device,
     )
